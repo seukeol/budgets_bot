@@ -6,17 +6,17 @@ from aiogram.fsm.state import State, StatesGroup
 import asyncio
 import crud
 from aiogram.utils.keyboard import InlineKeyboardBuilder
-from config import TOKEN
-from utils import add_expense, add_income, create_budget, get_budgets, get_last_transactions, get_report_data
+from config import TOKEN, valid_ids
+from utils import add_expense, add_income, create_budget, get_budgets, get_last_transactions, get_report_data, \
+    get_balance, edit_budget
 import csv
 
-valid_ids = [423765991, 8378748856, 7990585106, 684274390, 744556434]
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
 main_menu = InlineKeyboardMarkup(inline_keyboard=[
-    [InlineKeyboardButton(text="Информация о бюджетах", callback_data='budget_info')],
+    [InlineKeyboardButton(text="Информация о бюджетах", callback_data='budget_infos')],
     [InlineKeyboardButton(text="➕ Добавить расход", callback_data='add_expense'),
      InlineKeyboardButton(text="💰 Пополнить бюджет", callback_data='refill_budget')],
     [InlineKeyboardButton(text="🆕 Создать новый бюджет", callback_data='create_budget'),
@@ -41,10 +41,12 @@ transactions_kbd = InlineKeyboardMarkup(inline_keyboard=[
 class DeleteTransaction(StatesGroup):
     waiting_for_id = State()
 
-
 class AddExpense(StatesGroup):
     waiting_for_amount = State()
     waiting_for_description = State()
+
+class EditBudget(StatesGroup):
+    waiting_for_amount = State()
 
 class RefillBudget(StatesGroup):
     waiting_for_amount = State()
@@ -53,9 +55,11 @@ class CreateBudget(StatesGroup):
     waiting_for_name = State()
     waiting_for_balance = State()
 
+
 async def send_notification(message):
     for user in valid_ids:
         await bot.send_message(user, text=message, reply_markup=main_menu)
+
 
 async def get_budget_buttons(callback_start):
     builder = InlineKeyboardBuilder()
@@ -83,6 +87,17 @@ async def main_handler(callback: CallbackQuery, state: FSMContext):
     await state.clear()
     if callback.from_user.id in valid_ids:
         await callback.message.edit_text("Главное меню:", reply_markup=main_menu)
+
+
+@dp.callback_query(F.data == 'budget_infos')
+async def main_handler(callback: CallbackQuery):
+    if callback.from_user.id in valid_ids:
+        text = ''
+        budgets_info = await get_budgets()
+        for budget_info in budgets_info:
+            budget_balance = await get_balance(budget_info[0])
+            text += f"{budget_info[1]}: {budget_balance}р.\n"
+        await callback.message.edit_text(text, reply_markup=back_kbd)
 
 
 @dp.callback_query(F.data == 'add_expense')
@@ -292,6 +307,45 @@ async def get_table_handler(callback: CallbackQuery):
 async def main():
     await crud.create_tables()
     await dp.start_polling(bot, skip_updates=True)
+
+
+@dp.callback_query(F.data == 'edit_budget')
+async def add_expense_handler(callback: CallbackQuery):
+    kbd = await get_budget_buttons('add_expense')
+    await callback.message.edit_text("Выберите бюджет редактирования баланса:", reply_markup=kbd)
+
+
+@dp.callback_query(F.data.startswith('edit_budget_budget_id'))
+async def select_budget_handler(callback: CallbackQuery, state: FSMContext):
+    budget_id = callback.data.split('_')[-1]
+
+    await state.update_data(budget_id=budget_id)
+
+    await state.set_state(EditBudget.waiting_for_amount)
+
+    cancel_kbd = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="❌ Отмена", callback_data='menu')]
+    ])
+
+    await callback.message.edit_text(
+        "Введите сумму расхода:",
+        reply_markup=cancel_kbd
+    )
+
+
+@dp.message(EditBudget.waiting_for_amount)
+async def process_description(message: types.Message, state: FSMContext):
+    data = await state.get_data()
+    budget_id = data['budget_id']
+    amount = data['amount']
+
+    await state.clear()
+    await edit_budget(budget_id, amount)
+
+    text = f"✅ Бюджет изменен!\n\n💰 Новый баланс: {amount}\n \n Изменил: {message.from_user.first_name} "
+    await send_notification(text)
+
+
 
 if __name__ == "__main__":
     asyncio.run(main())

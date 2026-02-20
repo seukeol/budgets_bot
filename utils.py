@@ -20,6 +20,12 @@ async def create_budget(name, start_balance):
     return budget_id, name, balance
 
 
+async def edit_budget(budget_id, new_balance):
+    budget_balance = await get_balance(budget_id)
+    amount = new_balance - budget_balance
+    await crud.create_transaction(budget_id, amount,'для обновления баланса')
+
+
 async def add_expense(budget_id, amount, descr):
     value = amount
 
