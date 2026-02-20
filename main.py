@@ -16,7 +16,8 @@ bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
 main_menu = InlineKeyboardMarkup(inline_keyboard=[
-    [InlineKeyboardButton(text="Информация о бюджетах", callback_data='budget_infos')],
+    [InlineKeyboardButton(text="Информация о бюджетах", callback_data='budget_infos'),
+     InlineKeyboardButton(text="Редактировать бюджет", callback_data='edit_budget')],
     [InlineKeyboardButton(text="➕ Добавить расход", callback_data='add_expense'),
      InlineKeyboardButton(text="💰 Пополнить бюджет", callback_data='refill_budget')],
     [InlineKeyboardButton(text="🆕 Создать новый бюджет", callback_data='create_budget'),
@@ -311,7 +312,7 @@ async def main():
 
 @dp.callback_query(F.data == 'edit_budget')
 async def add_expense_handler(callback: CallbackQuery):
-    kbd = await get_budget_buttons('add_expense')
+    kbd = await get_budget_buttons('edit_budget')
     await callback.message.edit_text("Выберите бюджет редактирования баланса:", reply_markup=kbd)
 
 
