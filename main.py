@@ -329,21 +329,28 @@ async def select_budget_handler(callback: CallbackQuery, state: FSMContext):
     ])
 
     await callback.message.edit_text(
-        "Введите сумму расхода:",
+        "Введите новый баланс:",
         reply_markup=cancel_kbd
     )
 
 
 @dp.message(EditBudget.waiting_for_amount)
 async def process_description(message: types.Message, state: FSMContext):
+    try:
+        balance = float(message.text.replace(',', '.'))
+        if balance < 0:
+            await message.answer("Баланс не может быть отрицательным. Попробуйте еще раз:")
+            return
+    except ValueError:
+        await message.answer("Пожалуйста, введите корректное число. Попробуйте еще раз:")
+        return
     data = await state.get_data()
     budget_id = data['budget_id']
-    amount = data['amount']
 
     await state.clear()
-    await edit_budget(budget_id, amount)
+    await edit_budget(budget_id, balance)
 
-    text = f"✅ Бюджет изменен!\n\n💰 Новый баланс: {amount}\n \n Изменил: {message.from_user.first_name} "
+    text = f"✅ Бюджет изменен!\n\n💰 Новый баланс: {balance}\n \n Изменил: {message.from_user.first_name} "
     await send_notification(text)
 
 
