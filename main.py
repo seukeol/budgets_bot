@@ -33,6 +33,10 @@ back_kbd = InlineKeyboardMarkup(inline_keyboard=[
     [InlineKeyboardButton(text="◀️ Назад", callback_data='menu')]
 ])
 
+file_kbd = InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton(text="◀️ Назад", callback_data='menu_from_file')]
+])
+
 transactions_kbd = InlineKeyboardMarkup(inline_keyboard=[
     [InlineKeyboardButton(text="🗑 Удалить транзакцию", callback_data='delete_transaction')],
     [InlineKeyboardButton(text="◀️ Назад", callback_data='menu')]
@@ -88,6 +92,13 @@ async def main_handler(callback: CallbackQuery, state: FSMContext):
     await state.clear()
     if callback.from_user.id in valid_ids:
         await callback.message.edit_text("Главное меню:", reply_markup=main_menu)
+
+@dp.callback_query(F.data == 'menu_from_file')
+async def main_handler(callback: CallbackQuery, state: FSMContext):
+    await state.clear()
+    await callback.message.delete()
+    if callback.from_user.id in valid_ids:
+        await callback.message.answer("Главное меню:", reply_markup=main_menu)
 
 
 @dp.callback_query(F.data == 'budget_infos')
@@ -154,6 +165,8 @@ async def process_description(message: types.Message, state: FSMContext):
     await add_expense(budget_id, amount, description)
 
     text = f"✅ Расход добавлен!\n\n💰 Сумма: {amount}\n 📝 Описание: {description}\n Добавил: {message.from_user.first_name} "
+    budget_balance = await get_balance(budget_id)
+    text += f"\nНовый баланс: {budget_balance}р.\n"
     await send_notification(text)
 
 
@@ -188,6 +201,8 @@ async def process_refill_amount(message: types.Message, state: FSMContext):
     await state.clear()
     await add_income(budget_id, amount)
     text = f"✅ Бюджет пополнен!\n\n💰 Сумма пополнения: {amount}\n Пополнил: {message.from_user.first_name}"
+    budget_balance = await get_balance(budget_id)
+    text += f"\nНовый баланс: {budget_balance}р.\n"
     await send_notification(text)
 
 
@@ -301,7 +316,7 @@ async def get_table_handler(callback: CallbackQuery):
     await callback.message.answer_document(
         document=document,
         caption="📊 Отчет по транзакциям",
-        reply_markup=back_kbd
+        reply_markup=file_kbd
     )
     await callback.message.delete()
 
